@@ -1,0 +1,13 @@
+astropy==6.0.0
+astroquery==0.4.6
+ccdproc==2.4.1
+GaiaXPy==2.1.0
+matplotlib==3.7.1
+numpy==1.24.2
+pandas==2.0.1
+phot==0.2.12
+scikit_learn==1.2.2
+scipy==1.12.0
+seaborn==0.13.2
+setuptools==65.5.0
+speclite==0.14
