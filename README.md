@@ -70,12 +70,13 @@ This project is provided under the MIT license. For more details, please refer t
 
 ## Authors and Acknowledgment
 
-- Mr. Gregory S.H. Paek (SNU): Project SW Main Developer
-	- Email: gregorypaek94__at__g__mail__
-- Prof. Myungshin Im (SNU): Principal Investigator (PI)
-- Dr. Ji Hoon Kim (SNU): Project Manager (PM)
-
 This code is based on the modified and advanced code from the Dr. Yujin Yang (KASI) in 2022.
+
+| Name                | Role                   | Institution | Email                     |
+|---------------------|------------------------|-------------|---------------------------|
+| Mr. Gregory S.H. Paek | Project SW Main Developer | SNU         | gregorypaek94_at_g_mail |
+| Prof. Myungshin Im  | Principal Investigator (PI) | SNU         |                           |
+| Dr. Ji Hoon Kim     | Project Manager (PM)   | SNU         |                           |
 
 ## Changelog
 ### v0.1.0 - 2024-02-11
