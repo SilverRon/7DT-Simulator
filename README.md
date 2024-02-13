@@ -52,6 +52,7 @@ This project is provided under the MIT license. For more details, please refer t
 ## Authors and Acknowledgment
 
 - Mr. Gregory S.H. Paek (SNU): Project SW Main Developer
+	- Email: gregorypaek94__at__g__mail__
 - Prof. Myungshin Im (SNU): Principal Investigator (PI)
 - Dr. Ji Hoon Kim (SNU): Project Manager (PM)
 
