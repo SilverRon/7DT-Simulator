@@ -14,6 +14,8 @@ If you are interested in our project, please visit Google Document about details
 - https://docs.google.com/document/d/1WZ4sfvgd8PFF6FsxNkKlroQqSgf5JS7jZd158eS7RLQ/edit?usp=sharing
 
 ## Installation
+The required version of Python is `>=3.1X`. For the lower version of Python, it needs to be checked in near future.
+
 Note: *The installation using `setup.py` is under construction.*
 
 1. Clone this repository.
@@ -26,6 +28,23 @@ Note: *The installation using `setup.py` is under construction.*
 	cd 7DT-Simulator/
 	python setyp.py install
 	```
+
+Here are requirements in `requirements.txt`:
+```
+astropy==6.0.0
+astroquery==0.4.6
+ccdproc==2.4.1
+GaiaXPy==2.1.0
+matplotlib==3.7.1
+numpy==1.24.2
+pandas==2.0.1
+phot==0.2.12
+scikit_learn==1.2.2
+scipy==1.12.0
+seaborn==0.13.2
+setuptools==65.5.0
+speclite==0.14
+```
 
 ## Usage
 This version of `7DT-Simulator` has limited functionality, but there is no problem to generate a simulated photometry. Below example makes you start your work quickly:
