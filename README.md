@@ -14,7 +14,7 @@ If you are interested in our project, please visit Google Document about details
 - https://docs.google.com/document/d/1WZ4sfvgd8PFF6FsxNkKlroQqSgf5JS7jZd158eS7RLQ/edit?usp=sharing
 
 ## Installation
-The required version of Python is `>=3.1X`. For the lower version of Python, it needs to be checked in near future.
+The required version of Python is `>=3.1X`. For the lower version of Python, it needs to be checked in near future. If you install this package, **I higly recommend to install it with a new conda environment.**
 
 Note: *The installation using `setup.py` is under construction.*
 
@@ -45,6 +45,10 @@ seaborn==0.13.2
 setuptools==65.5.0
 speclite==0.14
 ```
+If you want to install dependencies, run the following command:
+```
+pip install -r requirements.txt
+```
 
 ## Usage
 This version of `7DT-Simulator` has limited functionality, but there is no problem to generate a simulated photometry. Below example makes you start your work quickly:
@@ -55,6 +59,28 @@ If you have a spectrum data that you want to convert to simulated `7DT` photomet
 
 **Note that this version works only in relative path like `7DT-Simulator/test` or `7DT-Simulator/code`**.
 
+## Authors and Acknowledgment
+
+If you are interested in `7DT`/`7DS`, or need some supports, please let us know.
+
+| Name                | Role                   | Institution | Email                     |
+|---------------------|------------------------|-------------|---------------------------|
+| Mr. Gregory S.H. Paek | Project SW Main Developer | SNU         | gregorypaek94_at_g_mail |
+| Prof. Myungshin Im  | Principal Investigator (PI) | SNU         |                           |
+| Dr. Ji Hoon Kim     | Project Manager (PM)   | SNU         |                           |
+
+This code is based on the modified and advanced code from the Dr. Yujin Yang (KASI) in 2022. We thank to the Dr. Yujin Yang.
+
+## Changelog
+### v0.1.0 - 2024-02-11
+- Initial Commit
+### v0.1.1 - 2024-02-13
+- Modify `README.md`
+
+## License
+
+This project is provided under the MIT license. For more details, please refer to the `LICENSE` file.
+
 ## Features
 TBD
 
@@ -64,22 +90,3 @@ TBD
 ## Contributing
 TBD
 
-## License
-
-This project is provided under the MIT license. For more details, please refer to the `LICENSE` file.
-
-## Authors and Acknowledgment
-
-This code is based on the modified and advanced code from the Dr. Yujin Yang (KASI) in 2022.
-
-| Name                | Role                   | Institution | Email                     |
-|---------------------|------------------------|-------------|---------------------------|
-| Mr. Gregory S.H. Paek | Project SW Main Developer | SNU         | gregorypaek94_at_g_mail |
-| Prof. Myungshin Im  | Principal Investigator (PI) | SNU         |                           |
-| Dr. Ji Hoon Kim     | Project Manager (PM)   | SNU         |                           |
-
-## Changelog
-### v0.1.0 - 2024-02-11
-- Initial Commit
-### v0.1.1 - 2024-02-13
-- Modify `README.md`
