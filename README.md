@@ -76,6 +76,8 @@ This code is based on the modified and advanced code from the Dr. Yujin Yang (KA
 - Initial Commit
 ### v0.1.1 - 2024-02-13
 - Modify `README.md`
+### v0.1.2 - 2024-05-07
+- Simplify codes
 
 ## License
 
