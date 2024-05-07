@@ -1,5 +1,6 @@
-#	22.09.25
-#	Gregory S.H. Paek
+#	22.09.25 created by Gregory S.H. Paek
+#	23.02.20 modified by Donggeun Tak
+
 #================================================================
 #	Library
 #----------------------------------------------------------------
@@ -11,8 +12,64 @@ from astropy import units as u
 from astropy.table import Table, vstack, hstack
 from astropy import constants as const
 import warnings
+from pathlib import Path
+from .const import *
+from astropy.cosmology import WMAP9 as cosmo
+
+SCRIPT_DIR = str(Path(__file__).parent.absolute())
 # from numba import *
 warnings.filterwarnings('ignore')
+
+func_linear = lambda x, a, b: a*np.log(x)+b
+
+#----------------------------------------------------------------
+def makeSpecColors(n, palette='Spectral'):
+	#	Color palette
+	import seaborn as sns
+	palette = sns.color_palette(palette, as_cmap=True,)
+	palette.reversed
+
+	clist_ = [palette(i) for i in range(palette.N)]
+	cstep = int(len(clist_)/n)
+	clist = [clist_[i*cstep] for i in range(n)]
+	return clist
+#----------------------------------------------------------------
+def tophat_trans(x, center=0, fwhm=1, smoothness=0.1):
+	from scipy.special import erf, erfc
+	t_left  = erfc(+((2*(x-center)/fwhm)-1)/smoothness)/2
+	t_right = erfc(-((2*(x-center)/fwhm)+1)/smoothness)/2
+	return (t_left*t_right)
+#----------------------------------------------------------------
+def get_testdata_path(file):
+	return f"{SCRIPT_DIR}/testdata/{file}"
+#----------------------------------------------------------------
+def get_testdata(target):
+	if target == "Feige110":
+		sptbl = Table.read(get_testdata_path('fFeige110.dat'), names=["lam", "f_lam"], format='ascii')
+		sptbl['lam'].unit = u.Angstrom
+		sptbl['f_lam'].unit = flamunit
+	elif target=="Highz_QSO":
+		sptbl = Table.read(get_testdata_path('Highz_QSO_model.dat'), names=['lam', 'f_nu'], format='ascii')
+		sptbl['lam'].unit = u.Angstrom
+		sptbl['f_nu'].unit = u.uJy
+		sptbl['f_lam'] = sptbl['f_nu'].to(u.erg/((u.cm**2)*u.second*u.Angstrom), u.spectral_density(sptbl['lam'].quantity))
+	else:
+		print("The testdata does not exist. Either Feige100 or Highz_QSO")
+	return sptbl
+#----------------------------------------------------------------
+def plot_data(data, ax=None, units="AB"):
+	import matplotlib.pyplot as plt
+	if ax is None:
+		ax = plt.gca()
+
+	if units == "AB":
+		splam = data["lam"]
+		spflam = data["f_lam"]
+		
+		spappfnu = convert_flam2fnu(spflam, splam)
+		spappmag = spappfnu.to(u.ABmag)
+	
+		plt.plot(splam, spappmag, zorder=0, c='grey', lw=3, alpha=0.5, label='spectrum')
 #----------------------------------------------------------------
 def get_bandwidth_table():
 	#	Bandwidth Table
@@ -43,16 +100,20 @@ def makeSpecColors(n, palette='Spectral'):
 	return clist
 #----------------------------------------------------------------
 def convert_lam2nu(lam):
-	nu = (const.c/(lam)).to(u.Hz)
+	nu = (const.c/(lam.quantity)).to(u.Hz)
 	return nu
 #----------------------------------------------------------------
 def convert_fnu2flam(fnu, lam):
-	flam = (fnu*const.c/(lam**2)).to((u.erg/((u.cm**2)*u.second*u.Angstrom)))
-	return flam
+    fnu_cgs = fnu.to(u.erg / (u.cm**2 * u.s * u.Hz))  # Convert mJy to erg / (cm^2 * s * Hz)
+    lam_cm = lam.to(u.cm)  # Convert Angstrom to cm
+    flam = (fnu_cgs * const.c / (lam_cm**2)).to(u.erg / (u.cm**2 * u.s * u.Angstrom), equivalencies=u.spectral_density(lam_cm))
+    return flam
 #----------------------------------------------------------------
 def convert_flam2fnu(flam, lam):
-	fnu = (flam*lam**2/const.c).to((u.erg/((u.cm**2)*u.second*u.Hz)))
-	return fnu
+    c = const.c.to('cm/s')
+    lam_cm = lam.to(u.cm)  # Convert lam to centimeters
+    fnu = (flam * lam_cm**2 / c).to(u.erg / (u.cm**2 * u.s * u.Hz), equivalencies=u.spectral_density(lam_cm))
+    return fnu
 #----------------------------------------------------------------
 def convert_app2abs(m, d):
 	M = m - (5*np.log10(d)-5)
@@ -335,6 +396,22 @@ def calc_GaussianFraction(seeing, optfactor=0.6731, path_plot=None):
 
 	return frac
 
+def apply_redshift_on_spectrum(spflam, splam, z, z0=0, scale=True):
+	d = cosmo.luminosity_distance(z)
+	#	Shifted wavelength
+	zsplam = splam*(1+z)/(1+z0)
+	#	z-->distance
+	##	distance scaling
+	if scale:
+		zspfnu = convert_flam2fnu(spflam, zsplam)
+		zspabsmag = zspfnu.to(u.ABmag)
+		zspappmag = convert_abs2app(zspabsmag.value, d.to(u.pc).value)*u.ABmag
+		zspappfnu = zspappmag.to(u.uJy)
+		zspappflam = convert_fnu2flam(zspappfnu, zsplam)
+		return (zspappflam, zsplam)
+	else:
+		return (spflam, zsplam)
+
 def add_noise(mu, sigma, nseed, n=10, path_plot=None):
 	"""
 	mu, sigma = 17.5, 0.1
@@ -559,11 +636,11 @@ def get_mean_kn_parameter(path_kntable):
 
 	return (inlam, splam, phase, mdmean, vdmean, mwmean, vwmean, angmean, phasemean, mumean)
 
-def register_custom_filters_on_speclite(path):
+def register_custom_filters_on_speclite():
 	#	Declare the speclite filtersets
 	import speclite.filters
 	#	Medium-band (25nm)
-	rsptbl = ascii.read(f'{path}/7dt_filter.m4000_to_m8750.25nm.response.dat')
+	rsptbl = ascii.read(f'{SCRIPT_DIR}/refdata/7dt/7dt_filter.m4000_to_m8750.25nm.response.dat')
 	filterlist = np.unique(rsptbl['name'])
 	for filte in filterlist:
 		#	Filter Table
@@ -574,7 +651,7 @@ def register_custom_filters_on_speclite(path):
 			response = fltbl['response'], meta=dict(group_name='med25nm', band_name=filte)
 		)
 	#	Medium-band (50nm)
-	rsptbl = ascii.read(f'{path}/7dt_filter.m3750_to_m9000.50nm.response.dat')
+	rsptbl = ascii.read(f'{SCRIPT_DIR}/refdata/7dt/7dt_filter.m3750_to_m9000.50nm.response.dat')
 	filterlist = np.unique(rsptbl['name'])
 	for filte in filterlist:
 		#	Filter Table
@@ -585,7 +662,7 @@ def register_custom_filters_on_speclite(path):
 			response = fltbl['response'], meta=dict(group_name='med50nm', band_name=filte)
 		)
 	#	Broad-band (SDSS)
-	rsptbl = ascii.read(f'{path}/7dt_filter.ugriz.broad.response.dat')
+	rsptbl = ascii.read(f'{SCRIPT_DIR}/refdata/7dt/7dt_filter.ugriz.broad.response.dat')
 	filterlist = np.unique(rsptbl['name'])
 	for filte in filterlist:
 		#	Filter Table
@@ -655,67 +732,130 @@ def tablize_sedinfo(path_sedinfo, models):
 
 
 
-#==========
+def fill_nan_with_interpolation(array):
+	n = len(array)
+	nan_indices = np.where(np.isnan(array.value))[0]  # .value to get the numerical part
 
-filterlist_med25nm = (
-	('m4000', '25nm', 'med25nm'),
-	('m4250', '25nm', 'med25nm'),
-	('m4500', '25nm', 'med25nm'),
-	('m4750', '25nm', 'med25nm'),
-	('m5000', '25nm', 'med25nm'),
-	('m5250', '25nm', 'med25nm'),
-	('m5500', '25nm', 'med25nm'),
-	('m5750', '25nm', 'med25nm'),
-	('m6000', '25nm', 'med25nm'),
-	('m6250', '25nm', 'med25nm'),
-	('m6500', '25nm', 'med25nm'),
-	('m6750', '25nm', 'med25nm'),
-	('m7000', '25nm', 'med25nm'),
-	('m7250', '25nm', 'med25nm'),
-	('m7500', '25nm', 'med25nm'),
-	('m7750', '25nm', 'med25nm'),
-	('m8000', '25nm', 'med25nm'),
-	('m8250', '25nm', 'med25nm'),
-	('m8500', '25nm', 'med25nm'),
-	('m8750', '25nm', 'med25nm'),
-)
+	for i in nan_indices:
+		left_idx = i
+		right_idx = i
 
-filterlist_griz = (
-	# ('u', 'broad', 'broad'),
-	('g', 'broad', 'broad'),
-	('r', 'broad', 'broad'),
-	('i', 'broad', 'broad'),
-	('z', 'broad', 'broad'),
-)
+		# Find the closest non-nan value on the left
+		while left_idx >= 0 and np.isnan(array[left_idx].value):
+			left_idx -= 1
 
-filterlist_ugriz = (
-	('u', 'broad', 'broad'),
-	('g', 'broad', 'broad'),
-	('r', 'broad', 'broad'),
-	('i', 'broad', 'broad'),
-	('z', 'broad', 'broad'),
-)
+		# Find the closest non-nan value on the right
+		while right_idx < n and np.isnan(array[right_idx].value):
+			right_idx += 1
 
-# http://svo2.cab.inta-csic.es/svo/theory/fps/index.php?mode=browse&gname=SLOAN&asttype=
-bandwidtharr_broad_ugriz = np.array([
-	#	ugriz
-	540.97,
-	1064.68,
-	1055.51,
-	1102.57,
-	1164.01,
-	#	u'g'r'i'z'
-	# 563.56,
-	# 1264.52,
-	# 1253.71,
-	# 1478.93,
-	# 4306.72,
-])
-bandwidtharr_broad_griz = np.array([
-	#	griz
-	1064.68,
-	1055.51,
-	1102.57,
-	1164.01,
-])
-bandwidtharr_med25nm = np.array([250]*20)
+		# Calculate interpolated value based on neighbors
+		if left_idx >= 0 and right_idx < n:
+			array[i] = (array[left_idx] + array[right_idx]) / 2
+		elif left_idx >= 0:  # if nan is on the right edge
+			array[i] = array[left_idx]
+		elif right_idx < n:  # if nan is on the left edge
+			array[i] = array[right_idx]
+
+def sensitivity_plot(spherex=True, smss=True, ps1=True, ax=None):
+    import matplotlib.pyplot as plt
+    if ax is None:
+        fig, ax = plt.subplots(1, figsize=(10,6))
+
+    #	SPHEREx
+    if spherex:
+        sphxcsvlist = sorted(glob.glob(f"{SCRIPT_DIR}/refdata/SPHEREx/SPHEREx*.csv"))
+        total_table_list = []
+        for ii, sphxcsv in enumerate(sphxcsvlist):
+            #	Table info
+            part = sphxcsv.split('_')
+            obstype = part[1]
+            ranges = part[2].split('.')[0]
+            #	Table
+            sphxtbl = ascii.read(sphxcsv)
+            sphxtbl['wavelength'] <<= u.um
+            sphxtbl['depth'] <<= u.ABmag
+            sphxtbl['obstype'] = obstype
+            sphxtbl['range'] = ranges
+            #	Append to the list
+            total_table_list.append(sphxtbl)
+        #	Total table
+        tsphxtbl = vstack(total_table_list)
+
+        wavelength = np.unique(tsphxtbl['wavelength'].to(u.Angstrom))
+        #	All-sky
+        asphxtbl = tsphxtbl[tsphxtbl['obstype']=='allsky']
+        asphxup = np.interp(wavelength, asphxtbl['wavelength'][asphxtbl['range']=='upper'], asphxtbl['depth'][asphxtbl['range']=='upper'])
+        asphxlo = np.interp(wavelength, asphxtbl['wavelength'][asphxtbl['range']=='lower'], asphxtbl['depth'][asphxtbl['range']=='lower'])
+        #	Deep
+        dsphxtbl = tsphxtbl[tsphxtbl['obstype']=='deep']
+        dsphxup = np.interp(wavelength, dsphxtbl['wavelength'][dsphxtbl['range']=='upper'], dsphxtbl['depth'][dsphxtbl['range']=='upper'])
+        dsphxlo = np.interp(wavelength, dsphxtbl['wavelength'][dsphxtbl['range']=='lower'], dsphxtbl['depth'][dsphxtbl['range']=='lower'])
+
+        ##	SPHEREx - allsky
+        ax.plot(asphxtbl['wavelength'].to(u.Angstrom), asphxtbl['depth'], mfc='k', mec='r', marker='o', ls='', label='SPHEREx All-sky')
+        ax.fill_between(wavelength.value, asphxlo, asphxup, facecolor='red', alpha=0.25)
+
+        #	SPHEREx - Deep
+        ax.plot(dsphxtbl['wavelength'].to(u.Angstrom), dsphxtbl['depth'], mfc='k', mec='orange', marker='.', ls='', label='SPHEREx Deep')
+        ax.fill_between(wavelength.value, dsphxlo, dsphxup, facecolor='orange', alpha=0.25)
+
+    #	SkyMapper
+    if smss:
+        smtbl = Table()
+        filterlist = ['u', 'v', 'g', 'r', 'i', 'z']
+        depthlist = [20.5, 20.5, 21.7, 21.7, 20.7, 19.7]
+        lameff = [3500.22, 3878.68, 5016.05, 6076.85, 7732.83, 9120.25]
+        lamwidth = [418.86, 319.06, 1450.60, 1414.05, 1246.20, 1158.57]
+        smtbl['filter'] = filterlist
+        smtbl['wavelength'] = lameff
+        smtbl['eqwidth'] = lamwidth
+        smtbl['depth'] = depthlist
+        #	uv filer only
+        smtbl = smtbl[(smtbl['filter']=='u') | (smtbl['filter']=='v')]
+
+        ax.errorbar(smtbl['wavelength'], smtbl['depth'], xerr=smtbl['eqwidth'], markersize=10, mfc='none', marker='s', ls='', label='SkyMapper (uv)')
+
+    #	PanSTARRs
+    if ps1:
+        # grizy < 22.0, 21.8, 21.5, 20.9, 19.7
+        pstbl = Table()
+        filterlist = ['g', 'r', 'i', 'z', 'y']
+        depthlist = [22.0, 21.8, 21.5, 20.9, 19.7]
+        lameff = [4810.16, 6155.47, 7503.03, 8668.36, 9613.60,]
+        lamwidth = [1053.08, 1252.41, 1206.62, 997.72, 638.98,]
+        pstbl['filter'] = filterlist
+        pstbl['wavelength'] = lameff
+        pstbl['eqwidth'] = lamwidth
+        pstbl['depth'] = depthlist
+        ax.errorbar(pstbl['wavelength'], pstbl['depth'], xerr=pstbl['eqwidth'], markersize=10, mfc='none', marker='s', ls='', label='PS1')
+
+    #	Setting
+    ax.set_xscale('log')
+
+    if not(ax.yaxis_inverted()):
+    	ax.invert_yaxis()
+
+    # xl, xr = ax.set_xlim()
+    # yl, yu = ax.set_ylim()
+    # yl = 17.
+
+    ax.set_xlim(3000,)
+    ax.set_ylim(None, 17)
+    #ax.set_ylim([yu, yl])
+
+    # ax.legend(loc='lower right', fontsize=12, ncol=2)
+    ax.legend(loc='best', fontsize=12, ncol=2, framealpha=1.0)
+    ax.tick_params(labelsize=14)
+
+    if spherex:
+        xticks = [4000, 6000, 9000, 15000, 20000, 30000, 40000, 50000]
+        ax.set_xticks(xticks, xticks)
+    ax.set_xlabel(r'Wavelength [$\rm \AA$]', fontsize=20)
+    # ax.set_ylabel(r'Magnitude AB [$\rm 5\sigma$]', fontsize=20)
+    ax.set_ylabel(r'$\rm 5\sigma$ Depth [AB]', fontsize=20)
+    #
+    plt.tight_layout()
+    plt.minorticks_on()
+    plt.grid('both', ls='--', c='silver', alpha=0.5)
+
+    return ax
