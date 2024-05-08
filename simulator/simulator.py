@@ -393,10 +393,10 @@ class SevenDT(Filter):
 		bands = speclite.filters.load_filters(*speclite_filterlist)
 		self.speclite_bands = bands
 	
-	def get_synphot(self, data, splam=None, z=None, z0=0, show_figure=True):
+	def get_synphot(self, data, splam=None, z=None, z0=0, show_figure=False, flux_unit="AB"):
 		
 		if isinstance(data, Table) and splam is None:
-			spflam = data["f_lam"]
+			spflam = data["flam"]
 			splam = data["lam"]
 		else:
 			spflam = data
@@ -428,6 +428,7 @@ class SevenDT(Filter):
 		outbl['mag_err'] = 0.0
 		outbl['fnu_obs'] = 0.0
 		outbl['fnu_err'] = 0.0
+
 		
 		for ii, (mag, filtername) in enumerate(zip(synappmag, self.filterNameList)):
 
@@ -447,6 +448,8 @@ class SevenDT(Filter):
 			outbl['mag_err'][ii] = merr
 			outbl['fnu_obs'][ii] = fnuobs.value
 			outbl['fnu_err'][ii] = fnuerr.value
+			
+			
 		outbl['fnu'] = (outbl['mag_app']*u.ABmag).to(u.uJy).value
 
 		#	Format
@@ -461,30 +464,49 @@ class SevenDT(Filter):
 		outbl['fnu_obs'].unit = u.uJy
 		outbl['fnu_err'].unit = u.uJy
 
+		outbl['flam_obs'] = utils.convert_fnu2flam(outbl['fnu_obs'], outbl['lam'])
+		outbl['flam_err'] = utils.convert_fnu2flam(outbl['fnu_err'], outbl['lam'])
+		outbl['flam'] = utils.convert_fnu2flam(outbl['fnu'], outbl['lam'])
+
 		self.synth_table = outbl
 
 		if show_figure:
 			ax = plt.gca()
-			utils.plot_data(data, ax=ax, units="AB")
-			self.plot_syn_spectrum(ax=ax)
+			utils.plot_data(data, ax=ax, flux_unit=flux_unit)
+			self.plot_syn_spectrum(ax=ax, flux_unit=flux_unit)
 
-	def plot_syn_spectrum(self, ax = None):
+	def plot_syn_spectrum(self, data=None, ax = None, flux_unit="AB", add_data=False):
+
+		if not(hasattr(self, "synth_table")) and data is not None:
+			self.get_synphot(data)
+
 		if ax is None:
 			fig, ax = plt.subplots(1)
 
 		outbl = self.synth_table
 
-		ax.plot(outbl['lam'], outbl['mag_app'], lw=3, zorder=0, marker='.', ls='none', c='tomato', alpha=0.75, label='syn.phot')
-		ax.errorbar(outbl['lam'], outbl['mag_obs'], xerr=outbl['bandwidth']/2, yerr=outbl['mag_err'], marker='none', c='k', zorder=0, alpha=0.5, ls='none')
-		scatter=ax.scatter(outbl['lam'], outbl['mag_obs'], c=outbl['snr'], marker='s', edgecolors='k', s=50, label='obs')
+		if add_data:
+			utils.plot_data(outbl, ax=ax, flux_unit=flux_unit, lw=3, zorder=0, marker='.', ls='none', c='tomato', alpha=0.75, label='syn.phot')
+
+		if flux_unit == "AB":
+			flux_unit = "mag"
+			ax.set_ylim([outbl['mag_obs'].max()+0.25, outbl['mag_obs'].min()-0.25])
+			ax.set_ylabel(r'Brightness [AB mag]', fontsize=12)
+		elif flux_unit == "fnu":
+			ax.set_ylabel(r'Flux [uJy]', fontsize=12)
+		elif flux_unit == "flam":
+			ax.set_ylabel(r'Flux [erg/s/cm$^2$/A]', fontsize=12)
+
+		ax.errorbar(outbl['lam'], outbl[f'{flux_unit}_obs'], xerr=outbl['bandwidth']/2, yerr=outbl[f'{flux_unit}_err'], marker='none', c='k', zorder=0, alpha=0.5, ls='none')
+		scatter=ax.scatter(outbl['lam'], outbl[f'{flux_unit}_obs'], c=outbl['snr'], marker='s', edgecolors='k', s=50, label='obs')
 		cbar = plt.colorbar(scatter)
 		cbar.set_label('SNR', fontsize=12)
 
 		ax.set_xlim([self.bandcenter[0]-250, self.bandcenter[-1]+250])
-		ax.set_ylim([outbl['mag_obs'].max()+0.25, outbl['mag_obs'].min()-0.25])
+		
 		ax.legend(loc='lower center', fontsize=10, ncol=3)
 		ax.set_xlabel(r'Wavelength [$\rm \AA$]', fontsize=12)
-		ax.set_ylabel(r'Brightness [AB mag]', fontsize=12)
+		
 		plt.tight_layout()
 
 		return ax

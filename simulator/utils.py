@@ -45,31 +45,41 @@ def get_testdata_path(file):
 #----------------------------------------------------------------
 def get_testdata(target):
 	if target == "Feige110":
-		sptbl = Table.read(get_testdata_path('fFeige110.dat'), names=["lam", "f_lam"], format='ascii')
+		sptbl = Table.read(get_testdata_path('fFeige110.dat'), names=["lam", "flam"], format='ascii')
 		sptbl['lam'].unit = u.Angstrom
-		sptbl['f_lam'].unit = flamunit
+		sptbl['flam'].unit = flamunit
 	elif target=="Highz_QSO":
-		sptbl = Table.read(get_testdata_path('Highz_QSO_model.dat'), names=['lam', 'f_nu'], format='ascii')
+		sptbl = Table.read(get_testdata_path('Highz_QSO_model.dat'), names=['lam', 'fnu'], format='ascii')
 		sptbl['lam'].unit = u.Angstrom
-		sptbl['f_nu'].unit = u.uJy
-		sptbl['f_lam'] = sptbl['f_nu'].to(u.erg/((u.cm**2)*u.second*u.Angstrom), u.spectral_density(sptbl['lam'].quantity))
+		sptbl['fnu'].unit = u.uJy
+		sptbl['flam'] = sptbl['fnu'].to(u.erg/((u.cm**2)*u.second*u.Angstrom), u.spectral_density(sptbl['lam'].quantity))
 	else:
 		print("The testdata does not exist. Either Feige100 or Highz_QSO")
 	return sptbl
 #----------------------------------------------------------------
-def plot_data(data, ax=None, units="AB"):
+def plot_data(data, ax=None, flux_unit="AB", **kwargs):
 	import matplotlib.pyplot as plt
 	if ax is None:
 		ax = plt.gca()
 
-	if units == "AB":
+	if flux_unit == "AB":
 		splam = data["lam"]
-		spflam = data["f_lam"]
-		
-		spappfnu = convert_flam2fnu(spflam, splam)
-		spappmag = spappfnu.to(u.ABmag)
-	
-		plt.plot(splam, spappmag, zorder=0, c='grey', lw=3, alpha=0.5, label='spectrum')
+		spflam = data["flam"]
+		x = convert_flam2fnu(spflam, splam)
+		y = spappfnu.to(u.ABmag)
+	elif flux_unit == "fnu":
+		x = data["lam"]
+		if "fnu" not in data.keys():
+			y = convert_flam2fnu(data["flam"], data["lam"])
+		else:
+			y = data["f_nu"]
+	elif flux_unit == "flam":
+		x = data["lam"]
+		if "flam" not in data.keys():
+			y = convert_fnu2flam(data["fnu"], data["lam"])
+		else:
+			y = data["flam"]
+	plt.plot(x, y, color=kwargs.pop("color", "gray"), zorder=kwargs.pop("zorder", 0), **kwargs)
 #----------------------------------------------------------------
 def get_bandwidth_table():
 	#	Bandwidth Table
