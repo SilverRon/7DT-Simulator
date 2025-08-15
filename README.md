@@ -1,4 +1,5 @@
 # 7DT-Simulator
+[![DOI](https://zenodo.org/badge/755874598.svg)](https://doi.org/10.5281/zenodo.16881285)
 
 ## Overview
 `7DT-Simulator` is to help user to calculate the expected photometric results for a specific set of optical spectra, considering the realistic sensitifity of below components:
